@@ -2,24 +2,29 @@
 
 #include <iostream>
 
-using namespace Ubpa;
+using namespace Ubpa::UECS;
 using namespace std;
 
 struct P {};
 struct V {};
 struct A {};
 
-struct VP_System {
-	static void OnUpdate(Schedule& schedule) {
-		schedule.Request([](const V*, P*) {cout << "VP" << endl; }, "VP");
+class VP_System : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) override {
+		schedule.Register([](const V*, P*) {cout << "VP" << endl; }, "VP");
 	}
 };
 
-struct AVP_System {
-	static void OnUpdate(Schedule& schedule) {
-		schedule
-			.Request([](const A*, V*, P*) {cout << "AVP" << endl; }, "AVP")
-			.InsertNone<A>("VP");
+class AVP_System : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) override {
+		schedule.Register([](const A*, V*, P*) {cout << "AVP" << endl; }, "AVP");
+		schedule.InsertNone("VP", CmptType::Of<A>);
 	}
 };
 
@@ -27,8 +32,8 @@ int main() {
 	World w;
 	w.systemMngr.Register<VP_System, AVP_System>();
 
-	w.entityMngr.CreateEntity<V, P>();
-	w.entityMngr.CreateEntity<A, V, P>();
+	w.entityMngr.Create<V, P>();
+	w.entityMngr.Create<A, V, P>();
 
 	w.Update();
 

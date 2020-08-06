@@ -1,40 +1,81 @@
+```
+
+ __    __   _______   ______     _______.
+|  |  |  | |   ____| /      |   /       |
+|  |  |  | |  |__   |  ,----'  |   (----`
+|  |  |  | |   __|  |  |        \   \    
+|  `--'  | |  |____ |  `----.----)   |   
+ \______/  |_______| \______|_______/    
+                                         
+
+```
+
+⭐ Star us on GitHub — it helps!
+
+[![repo-size](https://img.shields.io/github/languages/code-size/Ubpa/UECS?style=flat)](https://github.com/Ubpa/UECS/archive/master.zip) [![tag](https://img.shields.io/github/v/tag/Ubpa/UECS)](https://github.com/Ubpa/UECS/tags) [![license](https://img.shields.io/github/license/Ubpa/UECS)](LICENSE) 
+
 # UECS
-**U**bpa **E**ntity-**C**omponent-**S**ystem in Unity-style
+
+**U**bpa **E**ntity-**C**omponent-**S**ystem in Unity3D-style
+
+## Environment
+
+- VS 2019
+- C++ 17
+- CMake 16.3 +
+
+## Documentation
+
+- [API](doc/API.md) 
+- [Comparison with Unity3D ECS](doc/comparison.md) 
+- [TODO](doc/todo.md) 
 
 ## Example
 
 ```c++
 #include <UECS/World.h>
 
+using namespace Ubpa::UECS;
+
 struct Position { float val; };
 struct Velocity { float val; };
 
-struct MoverSystem {
-    static void OnUpdate(Ubpa::Schedule& schedule) {
-        schedule.Request(
-            [](const Velocity* v, Position* p) {
-                p->val += v->val;
-            }, "MoverSystem");
-    }
+class MoverSystem : public System {
+public:
+  using System::System;
+
+  virtual void OnUpdate(Schedule& schedule) override {
+    schedule.Register(
+      [](const Velocity* v, Position* p) {
+        p->val += v->val;
+      },
+      "Mover"
+    );
+  }
 };
 
 int main() {
-    Ubpa::World w;
-    w.systemMngr.Register<MoverSystem>();
-    w.entityMngr.CreateEntity<Position, Velocity>();
-    w.Update();
+  World w;
+  w.systemMngr.Register<MoverSystem>();
+  w.entityMngr.CreateEntity<Position, Velocity>();
+  w.Update();
 }
 ```
 
-## Compare with Unity ECS
+**other examples** 
 
-UECS's primary reference project is Unity's ECS.
-
-Read [compare.md](compare.md) for details.
-
-## TODO
-
-Read [todo.md](todo.md) for details.
+- [read/write tag](src/test/01_tag/main.cpp) 
+- [system update order](src/test/02_order/main.cpp) 
+- system function with [`Entity`](src/test/03_query_entity/main.cpp), [`indexInQuery`](src/test/09_idx_in_query/main.cpp) 
+- [job function](src/test/08_job/main.cpp) 
+- [chunk layout optimization with alignment](src/test/05_alignment/main.cpp) 
+- [parrallel with `None` filter](src/test/06_none_parallel/main.cpp) 
+- [system **overload**](src/test/07_overload/main.cpp) 
+- [runtime dynamic component](src/test/11_runtime_cmpt/main.cpp) 
+- [generate **frame graph** in **Graphviz**](src/test/12_framegraph/main.cpp) 
+- [performance test](src/test/13_performance/main.cpp) 
+- [serialize](src/test/14_serialize/main.cpp) 
+- [chunk job](src/test/15_chunk_job/main.cpp) 
 
 ## Licensing
 

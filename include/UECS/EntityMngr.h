@@ -7,58 +7,83 @@
 
 #include <UContainer/Pool.h>
 
-#include <mutex>
-
-namespace Ubpa {
+namespace Ubpa::UECS {
 	class World;
 
+	class IListener;
+
+	// Entity Manager of World
+	// auto maintain Component's lifecycle ({default|copy|move} constructor, destructor)
+	// [API]
+	// - Entity: Create, Instantiate, Destroy, Exist
+	// - Component: Attach, Emplace, Detach, Have, Get, Components
+	// - other: EntityNum, AddCommand
+	// [important]
+	// - API with CmptType need RTDCmptTraits to get {size|alignment|lifecycle function} (throw std::logic_error)
+	// - API with Entity require Entity exist  (throw std::invalid_argument)
 	class EntityMngr {
 	public:
 		template<typename... Cmpts>
-		const std::tuple<Entity, Cmpts*...> CreateEntity();
+		std::tuple<Entity, Cmpts*...> Create();
+
+		// use RTDCmptTraits
+		Entity Create(const CmptType* types, size_t num);
+
+		Entity Instantiate(Entity);
 
 		// TODO: CreateEntities
 
 		template<typename... Cmpts>
-		const std::tuple<Cmpts*...> Attach(Entity e);
+		std::tuple<Cmpts*...> Attach(Entity);
+
+		// use RTDCmptTraits
+		void Attach(Entity, const CmptType* types, size_t num);
 
 		template<typename Cmpt, typename... Args>
-		Cmpt* Emplace(Entity e, Args&&... args);
+		Cmpt* Emplace(Entity, Args&&...);
 
-		template<typename... Cmpts>
-		void Detach(Entity e);
+		// use RTDCmptTraits
+		void Detach(Entity, const CmptType* types, size_t num);
 
-		void Destroy(Entity e);
-
-		bool Exist(Entity e) const;
+		bool Have(Entity, CmptType) const;
 
 		template<typename Cmpt>
-		bool Have(Entity e) const;
-		template<typename Cmpt>
-		Cmpt* Get(Entity e) const;
+		Cmpt* Get(Entity) const;
+		CmptPtr Get(Entity, CmptType) const;
 
-		size_t EntityNum(const EntityQuery& query) const;
+		std::vector<CmptPtr> Components(Entity) const;
 
-		void AddCommand(const std::function<void()>& command);
+		bool Exist(Entity) const;
+
+		void Destroy(Entity);
+
+		size_t EntityNum(const EntityQuery&) const;
+
+		void Accept(IListener* listener) const;
 
 	private:
 		friend class World;
 		EntityMngr() = default;
 		~EntityMngr();
 
+		static bool IsSet(const CmptType* types, size_t num);
+
 		const std::set<Archetype*>& QueryArchetypes(const EntityQuery& query) const;
 
 		template<typename... Cmpts>
 		Archetype* GetOrCreateArchetypeOf();
+		Archetype* GetOrCreateArchetypeOf(const CmptType* types, size_t num);
 
 		template<typename... Cmpts>
-		std::tuple<std::array<bool, sizeof...(Cmpts)>, std::tuple<Cmpts*...>> AttachWithoutInit(Entity e);
+		void AttachWithoutInit(Entity);
+		void AttachWithoutInit(Entity, const CmptType* types, size_t num);
 
-		void GenJob(Job* job, SystemFunc* sys) const;
+		void GenEntityJob(World*, Job*, SystemFunc*) const;
+		void GenChunkJob(World*, Job*, SystemFunc*) const;
 
 		struct EntityInfo {
 			Archetype* archetype{ nullptr };
-			size_t idxInArchetype{ Archetype::npos };
+			size_t idxInArchetype{ size_t_invalid };
 			size_t version{ 0 }; // version
 		};
 		std::vector<EntityInfo> entityTable;
@@ -69,11 +94,6 @@ namespace Ubpa {
 		std::unordered_map<size_t, Archetype*> h2a; // archetype's hashcode to archetype
 		
 		mutable std::unordered_map<EntityQuery, std::set<Archetype*>> queryCache;
-
-		// command
-		std::vector<std::function<void()>> commandBuffer;
-		std::mutex commandBufferMutex;
-		void RunCommands();
 	};
 }
 

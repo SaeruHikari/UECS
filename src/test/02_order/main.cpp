@@ -2,33 +2,43 @@
 
 #include <iostream>
 
-using namespace Ubpa;
+using namespace Ubpa::UECS;
 using namespace std;
 
 struct Data1 {};
 struct Data2 {};
 
-struct DataSystem {
-	static void OnUpdate(Schedule& schedule) {
+class DataSystem : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) noexcept {
+		schedule.Register([](Data1* d1, Data2* d2) { cout << "writer_sys0" << endl; }, "writer_sys0");
+		schedule.Register([](Data1* d) { cout << "writer_sys1" << endl; }, "writer_sys1");
+		schedule.Register([](Data2* d2) { cout << "writer_sys2" << endl; }, "writer_sys2");
+		schedule.Register([](Data1* d, Data2* d2) { cout << "writer_sys3" << endl; }, "writer_sys3");
+
 		schedule
-			.Request([](Data1* d1, Data2* d2) { cout << "writer_sys0" << endl; }, "writer_sys0")
-			.Request([](Data1* d) { cout << "writer_sys1" << endl; }, "writer_sys1")
-			.Request([](Data2* d2) { cout << "writer_sys2" << endl; }, "writer_sys2")
-			.Request([](Data1* d, Data2* d2) { cout << "writer_sys3" << endl; }, "writer_sys3")
 			.Order("writer_sys0", "writer_sys1")
 			.Order("writer_sys1", "writer_sys3");
 	}
 };
 
 int main() {
+	RTDCmptTraits::Instance().Register<
+		Data1,
+		Data2
+	>();
+
 	World w;
 	w.systemMngr.Register<DataSystem>();
 
-	w.entityMngr.CreateEntity<Data1, Data2>();
+	w.entityMngr.Create<Data1, Data2>();
 
 	w.Update();
 
 	cout << w.DumpUpdateJobGraph() << endl;
+	cout << w.GenUpdateFrameGraph().Dump() << endl;
 
 	return 0;
 }

@@ -1,4 +1,4 @@
-# Compare with Unity ECS core
+# Comparison with Unity ECS core
 
 > ref: [Unity Entities 0.10.0-preview.6](https://docs.unity3d.com/Packages/com.unity.entities@0.10/manual/index.html) 
 >
@@ -22,17 +22,22 @@
 
 cpp-Taskflow
 
-only support "ForEach" 
+support
+
+- `Entities.ForEach`: use `schedule.Register([](<Component-Tag>...){...})` 
+- `Job.WithCode`: use `schedule.Register([](){...})`(empty argument)
 
 **System organization** 
 
 (TODO) System Group
 
+use `schedule.Order(<system-name>, <system-name>)` to set system update order
+
 ## 1. Entities
 
 **Creating entities** 
 
-(TODO) copy
+copy -> `instantiate` 
 
 (TODO) batch create
 
@@ -44,7 +49,7 @@ only support "ForEach"
 
 (TODO) change filter
 
-#### 1.2 Worlds
+### 1.2 Worlds
 
 ## 2. Components
 
@@ -60,7 +65,7 @@ needless, you can use components constructor, destructor and move comstructor (c
 
 ### 2.4 Dynamic buffer components
 
-needless, you can use `std::vector` in Component
+needless, you can use any type (e.g. `std::vector`) in your component
 
 ### 2.5 Chunk components
 
@@ -68,11 +73,11 @@ needless, you can use `std::vector` in Component
 
 ## 3. Systems
 
-no instantiation, just use static function `OnUpdate(Schedule&)`，you can regist `SystemFunc`，set update order, dynamic change filter, etc.
+like Unity3D
 
 ### 3.1 Creating systems
 
-lifecycle: only support `OnUpdate`, because of no instantiation
+lifecycle: support `OnUpdate`, you can C++'s constructor and desturctor
 
 (TODO) shared component filter
 
@@ -80,22 +85,44 @@ lifecycle: only support `OnUpdate`, because of no instantiation
 
 **Components** 
 
-use `CmptTag::LastFrame<Cmpt>`, `CmptTag::Write<Cmpt> == <Cmpt> *`, `CmptTag::Lastest<Cmpt> == const <Cmpt>* ` to differentiate read/write and timepoint
+use `CmptTag::LastFrame<Cmpt> (like const <Cmpt>*)`, `CmptTag::Write<Cmpt> == <Cmpt> *`, `CmptTag::Lastest<Cmpt> == const <Cmpt>* ` to differentiate read/write and timepoint
 
 - `SystemFunc` with `LastFrame<Cmpt>` run before any `SystemFunc` with `CmptTag::Write<Cmpt>` 
 
-- `SystemFunc` with `CmptTag::Write<Cmpt>` run before any `SystemFunc` with `CmptTag::Lastest<Cmpt>` 
+- `SystemFunc` with `Write<Cmpt>` run before any `SystemFunc` with `CmptTag::Lastest<Cmpt>` 
 
 **special parameters** 
 
 - `[const] Entity` 
-- `size_t int entityInQueryIndex` 
+- `size_t entityInQueryIndex` 
 - (not-support) `size_t nativeThreadIndex` 
+- `[const] CmptsView` 
+- `[const] ChunkView` 
 
 **System kind** 
 
-- components + special parameters : system for each entity
-- empty : job
+- per entity function (default)
+  - [[const] World*]
+  - [[const] Entity]
+  - [size_t indexInQuery]
+  - [[const] CmptsView]
+  - \<tagged-component\>: {LastFrame|Write|Latest}\<Component\> 
+- chunk
+  - [[const] World*]
+  - [[const] ChunkView]
+
+```c++
+// 1. 
+	// * [[const] World*]
+	// * [[const] Entity]
+	// * [size_t indexInQuery]
+	// * [[const] CmptsView]
+	// * <tagged-component>: {LastFrame|Write|Latest}<Component>
+	// 2. chunk: [[const] World*], [const] ChunkView
+	// 3. job: [[const] World*]
+```
+
+
 
 ### 3.2 System update order
 
@@ -107,7 +134,7 @@ use `CmptTag::LastFrame<Cmpt>`, `CmptTag::Write<Cmpt> == <Cmpt> *`, `CmptTag::La
 
 ### 3.5 Entity command buffers
 
-`World::AddCommand()`，run all commands after Update Graph
+`World::AddCommand()`，run all commands after Update graph
 
 ## 4. Sync points and structural changes
 
@@ -115,13 +142,19 @@ use `CmptTag::LastFrame<Cmpt>`, `CmptTag::Write<Cmpt> == <Cmpt> *`, `CmptTag::La
 
 currently, UECS only has a sync point `World::AddCommand()` 
 
+you can use a job as a syncpoint
+
 ## 5. Component WriteGroups
 
 use `Schedule::{Insert|Erase}{All|Any|None}` to dynamic change a system's filter
 
+Unity's `WriteGroup`  
+
 ## 6. Versions and generations
 
 only support `Entity::Version` 
+
+(TODO) chunk version
 
 ## 7. C# Job System extensions
 

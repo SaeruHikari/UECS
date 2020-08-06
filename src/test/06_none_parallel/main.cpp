@@ -2,35 +2,40 @@
 
 #include <iostream>
 
+using namespace Ubpa::UECS;
 using namespace Ubpa;
 using namespace std;
 
 struct A {};
 struct B {};
 
-struct MySystem {
-	static void OnUpdate(Schedule& schedule) {
-		EntityFilter filter_w0(TypeList<>{}, // all
+class MySystem : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) override {
+		EntityFilter filter_w0(
+			TypeList<>{}, // all
 			TypeList<>{}, // any
 			TypeList<A>{} // none
 		);
-		EntityFilter filter_w1(TypeList<A>{}, // all
+		EntityFilter filter_w1(
+			TypeList<A>{}, // all
 			TypeList<>{}, // any
 			TypeList<>{} // none
 		);
-		schedule
-			.Request([](B*) {}, "need B, none A", filter_w0)
-			.Request([](B*) {}, "need A, B", filter_w1);
+		schedule.Register([](B*) {}, "need B, none A", filter_w0);
+		schedule.Register([](B*) {}, "need A, B", filter_w1);;
 	}
 };
 
 int main() {
 	World w;
 	w.systemMngr.Register<MySystem>();
-	w.entityMngr.CreateEntity<>();
-	w.entityMngr.CreateEntity<A>();
-	w.entityMngr.CreateEntity<B>();
-	w.entityMngr.CreateEntity<A, B>();
+	w.entityMngr.Create<>();
+	w.entityMngr.Create<A>();
+	w.entityMngr.Create<B>();
+	w.entityMngr.Create<A, B>();
 
 	w.Update();
 

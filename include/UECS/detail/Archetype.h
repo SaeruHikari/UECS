@@ -1,13 +1,11 @@
 #pragma once
 
 #include "../Entity.h"
-
 #include "../CmptPtr.h"
 
-#include "Chunk.h"
+#include "RTSCmptTraits.h"
 #include "CmptTypeSet.h"
-
-#include "RuntimeCmptTraits.h"
+#include "Chunk.h"
 
 #include <UTemplate/Typelist.h>
 #include <UTemplate/TypeID.h>
@@ -16,35 +14,40 @@
 
 #include <map>
 
-namespace Ubpa {
+namespace Ubpa::UECS {
 	class EntityMngr;
 
 	// Entity is a special Component
+	// type of Entity + Components is Archetype's type
 	class Archetype {
 	public:
-		static constexpr size_t npos = static_cast<size_t>(-1);
-
 		// argument TypeList<Cmpts...> is for type deduction
 		// auto add Entity
 		template<typename... Cmpts>
-		Archetype(TypeList<Cmpts...>) noexcept;
+		Archetype(TypeList<Cmpts...>);
+
+		// auto add Entity, use RTDCmptTraits
+		static Archetype* New(const CmptType* types, size_t num);
 
 		// auto add Entity
 		template<typename... Cmpts>
-		static Archetype* Add(Archetype* from) noexcept;
+		static Archetype* Add(const Archetype* from);
+		static Archetype* Add(const Archetype* from, const CmptType* types, size_t num);
+
 		// auto add Entity
-		template<typename... Cmpts>
-		static Archetype* Remove(Archetype* from) noexcept;
+		static Archetype* Remove(const Archetype* from, const CmptType* types, size_t num);
 
 		~Archetype();
 
-		template<typename... Cmpts>
-		const std::vector<std::tuple<Entity*, Cmpts*...>> Locate() const;
-
 		// Entity + Components
-		std::tuple<std::vector<Entity*>, std::vector<std::vector<void*>>, std::vector<size_t>> Locate(const std::set<CmptType>& cmptTypes) const;
+		std::tuple<std::vector<Entity*>, std::vector<std::vector<void*>>, std::vector<size_t>>
+		Locate(const std::set<CmptType>& cmptTypes) const;
+
+		void* Locate(size_t chunkIdx, CmptType) const;
+
+		Chunk* GetChunk(size_t chunkIdx) const { return chunks[chunkIdx]; }
 		
-		std::tuple<void*, size_t> At(CmptType type, size_t idx) const;
+		void* At(CmptType type, size_t idx) const;
 
 		template<typename Cmpt>
 		Cmpt* At(size_t idx) const;
@@ -55,29 +58,40 @@ namespace Ubpa {
 		// no init
 		size_t RequestBuffer();
 
-		// init cmpts
-		// set Entity
+		// init cmpts, set Entity
+		// size_t: index in archetype
 		template<typename... Cmpts>
-		const std::tuple<size_t, std::tuple<Cmpts*...>> CreateEntity(Entity e);
+		std::tuple<size_t, std::tuple<Cmpts*...>> Create(Entity e);
+		size_t Create(Entity e);
+
+		// return index in archetype
+		size_t Instantiate(Entity e, size_t srcIdx);
 
 		// erase idx-th entity
 		// if idx != num-1, back entity will put at idx, return moved Entity's index
-		// else return Entity::npos
+		// else return size_t_invalid
+		// move-assignment + destructor
 		size_t Erase(size_t idx);
 
 		// Components + Entity
 		const CmptTypeSet& GetCmptTypeSet() const noexcept { return types; }
-		const RuntimeCmptTraits& GetRuntimeCmptTraits() const noexcept { return cmptTraits; }
+		const RTSCmptTraits& GetRTSCmptTraits() const noexcept { return cmptTraits; }
 
 		// no Entity
 		size_t CmptNum() const noexcept { return types.size() - 1; }
 
 		size_t EntityNum() const noexcept { return entityNum; }
+		size_t EntityNumOfChunk(size_t chunkIdx) const noexcept;
 		size_t ChunkNum() const noexcept { return chunks.size(); }
 		size_t ChunkCapacity() const noexcept { return chunkCapacity; }
 
 		template<typename... Cmpts>
 		static constexpr size_t HashCode() noexcept { return CmptTypeSet::HashCodeOf<Entity, Cmpts...>(); }
+		static size_t HashCode(const CmptType* types, size_t num) {
+			CmptTypeSet typeset{ types,num };
+			typeset.Insert(CmptType::Of<Entity>);
+			return typeset.HashCode();
+		}
 
 	private:
 		Archetype() = default;
@@ -91,10 +105,10 @@ namespace Ubpa {
 		friend class EntityMngr;
 
 		CmptTypeSet types; // Entity + Components
-		RuntimeCmptTraits cmptTraits;
+		RTSCmptTraits cmptTraits;
 		std::unordered_map<CmptType, size_t> type2offset; // CmptType to offset in chunk (include Entity)
 
-		size_t chunkCapacity{ static_cast<size_t>(-1) };
+		size_t chunkCapacity{ size_t_invalid };
 		std::vector<Chunk*> chunks;
 
 		size_t entityNum{ 0 }; // number of entities

@@ -3,7 +3,8 @@
 #include "EntityFilter.h"
 #include "EntityLocator.h"
 
-namespace Ubpa {
+namespace Ubpa::UECS {
+	// EntityFilter + EntityLocator
 	class EntityQuery {
 	public:
 		EntityFilter filter;

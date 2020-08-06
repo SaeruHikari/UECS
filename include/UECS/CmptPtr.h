@@ -4,44 +4,42 @@
 
 #include <cassert>
 
-namespace Ubpa {
+namespace Ubpa::UECS {
+	// CmptType + void*
 	class CmptPtr {
 	public:
 		CmptPtr(CmptType type, void* p) :type{ type }, p{ p }{}
 		template<typename Cmpt>
-		CmptPtr(Cmpt* p) : type{ CmptType::Of<Cmpt>() }, p{ p }{}
+		CmptPtr(Cmpt* p) : type{ CmptType::Of<Cmpt> }, p{ p }{}
+
+		CmptType Type() const noexcept { return type; }
+
+		// unchecked
+		void* Ptr() const noexcept { return p; }
+
+		// unchecked
+		template<typename Cmpt>
+		Cmpt* As() const noexcept { return reinterpret_cast<Cmpt*>(p); }
 
 		template<typename Cmpt>
-		Cmpt* As() const noexcept {
-			assert(type.Is<Cmpt>());
-			return reinterpret_cast<Cmpt*>(p);
+		LastFrame<Cmpt> AsLastFrame() const noexcept {
+			assert(type.GetAccessMode() == AccessMode::LAST_FRAME);
+			return p;
 		}
-		CmptType& Type() noexcept { return type; }
-		CmptType Type() const noexcept { return type; }
-		void*& Ptr() noexcept { return p; }
-		void* Ptr() const noexcept { return p; }
+
+		template<typename Cmpt>
+		Write<Cmpt> AsWrite() const noexcept {
+			assert(type.GetAccessMode() == AccessMode::WRITE);
+			return p;
+		}
+
+		template<typename Cmpt>
+		Latest<Cmpt> AsLatest() const noexcept {
+			assert(type.GetAccessMode() == AccessMode::LATEST);
+			return p;
+		}
 	private:
 		CmptType type;
 		void* p;
-	};
-
-	class CmptCPtr {
-	public:
-		CmptCPtr(CmptType type, const void* p) :type{ type }, p{ p }{}
-		template<typename Cmpt>
-		CmptCPtr(const Cmpt* p) : type{ CmptType::Of<Cmpt>() }, p{ p }{}
-
-		template<typename Cmpt>
-		const Cmpt* As() const noexcept {
-			assert(type.Is<Cmpt>());
-			return reinterpret_cast<Cmpt*>(p);
-		}
-		CmptType& Type() noexcept { return type; }
-		CmptType Type() const noexcept { return type; }
-		const void*& Ptr() noexcept { return p; }
-		const void* Ptr() const noexcept { return p; }
-	private:
-		CmptType type;
-		const void* p;
 	};
 }

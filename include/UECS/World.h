@@ -4,20 +4,38 @@
 #include "SystemMngr.h"
 #include "EntityMngr.h"
 
-namespace Ubpa {
+#include <UGraphviz/UGraphviz.h>
+
+#include <mutex>
+
+namespace Ubpa::UECS {
+	class IListener;
+
+	// SystemMngr + EntityMngr
 	class World {
 	public:
-		World() : schedule{ &entityMngr, &systemMngr } {}
+		World();
 
 		SystemMngr systemMngr;
 		EntityMngr entityMngr;
 
-		// static OnUpdateSchedule
-		// parallel OnUpdate
-		// Commands, one-by-one
+		// 1. schedule: run registered System's static OnUpdate(Schedule&)
+		// 2. gen job graph: schedule -> graph
+		// 3. run job graph in worker threads
+		// 4. run commands in main thread
 		void Update();
 
+		// after running Update
+		// you can use graphviz to vistualize the graph
 		std::string DumpUpdateJobGraph() const;
+
+		// after running Update
+		// use RTDCmptTraits' registered component name
+		UGraphviz::Graph GenUpdateFrameGraph() const;
+
+		void Accept(IListener* listener) const;
+
+		void AddCommand(std::function<void(World*)> command);
 
 	private:
 		mutable JobExecutor executor;
@@ -26,5 +44,16 @@ namespace Ubpa {
 		Job jobGraph;
 		std::vector<Job*> jobs;
 		Pool<Job> jobPool;
+
+		// command
+		std::vector<std::function<void(World*)>> commandBuffer;
+		std::mutex commandBufferMutex;
+		void RunCommands();
+
+		// ==================================================
+		World(const World& world) = delete;
+		World(World&& world) = delete;
+		World& operator==(World&& world) = delete;
+		World& operator=(const World& world) = delete;
 	};
 }

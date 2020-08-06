@@ -2,38 +2,43 @@
 
 #include <iostream>
 
-using namespace Ubpa;
+using namespace Ubpa::UECS;
 using namespace std;
 
 struct A {};
 struct B {};
 struct C {};
 
-struct MySystem {
-	static void OnUpdate(Schedule& schedule) {
-		schedule.Request(
-			[em = schedule.GetEntityMngr()](Entity e, const A* a, const B* b) {
-			em->AddCommand(
-					[e, em]() {
-						if (!em->Have<C>(e)) {
+class MySystem : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) override {
+		schedule.Register(
+			[](World* w, Entity e, const A* a, const B* b) {
+				w->AddCommand(
+					[e](World* w) {
+						if (!w->entityMngr.Have(e, CmptType::Of<C>)) {
 							cout << "Attach C" << endl;
-							em->Attach<C>(e);
+							w->entityMngr.Attach<C>(e);
 						}
 					}
 				);
-			}, "AB"
+			},
+			"AB"
 		);
-		schedule.Request(
-			[em = schedule.GetEntityMngr()](Entity e, const A* a, const B* b, const C* c) {
-				em->AddCommand(
-					[e, em]() {
-						if (em->Have<C>(e)) {
+		schedule.Register(
+			[](World* w, Entity e, const A* a, const B* b, const C* c) {
+				w->AddCommand(
+					[e](World* w) {
+						if (w->entityMngr.Have(e, CmptType::Of<C>)) {
 							cout << "Dettach C" << endl;
-							em->Detach<C>(e);
+							w->entityMngr.Detach(e, &CmptType::Of<C>, 1);
 						}
 					}
 				);
-			}, "ABC"
+			},
+			"ABC"
 		);
 	}
 };
@@ -42,7 +47,7 @@ int main() {
 	World w;
 	w.systemMngr.Register<MySystem>();
 
-	w.entityMngr.CreateEntity<A, B>();
+	w.entityMngr.Create<A, B>();
 
 	w.Update();
 	w.Update();

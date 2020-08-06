@@ -2,35 +2,45 @@
 
 #include <iostream>
 
-using namespace Ubpa;
+using namespace Ubpa::UECS;
 using namespace std;
 
-struct A {};
-struct B {};
+struct Data { size_t value; };
 
-struct MySystem {
-	static void OnUpdate(Schedule& schedule) {
+class MySystem : public System {
+public:
+	using System::System;
+
+	virtual void OnUpdate(Schedule& schedule) override {
 		auto buffer = std::make_shared<std::vector<size_t>>();
-		schedule
-			.Request(
-				[buffer]() {
-					for (size_t i = 0; i < 10; i++)
-						buffer->push_back(i);
-				}, "job0"
-			)
-			.Request(
-				[buffer]() {
-					for (size_t i : *buffer)
-						cout << i << endl;
-				}, "job1"
-			)
-			.Order("job0", "job1");
+		auto f = schedule.Register([buffer](size_t idxInQuery, const Data* data) {
+			buffer->at(idxInQuery) = data->value;
+			},
+			"system function"
+		);
+		schedule.Register([buffer]() {
+			size_t sum = 0;
+			for (size_t i : *buffer)
+				sum += i;
+				cout << sum << endl;
+			},
+			"job"
+		);
+		schedule.Order("system function", "job");
+
+		size_t num = GetWorld()->entityMngr.EntityNum(f->query);
+		buffer->resize(num);
 	}
 };
 
 int main() {
 	World w;
 	w.systemMngr.Register<MySystem>();
+
+	for (size_t i = 1; i <= 100; i++) {
+		auto [e] = w.entityMngr.Create();
+		w.entityMngr.Emplace<Data>(e, i);
+	}
 
 	w.Update();
 
